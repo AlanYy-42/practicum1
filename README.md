@@ -1,108 +1,104 @@
-# SQL-Engage Dataset
-**An emotion-aware synthetic SQL error dataset for adaptive feedback and engagement modeling in educational environments.**  
-Developed at the [Adaptive Learning & Gamification Lab (ALGL)](https://hazraimran.ca/algl), Northeastern University Vancouver.  
+# Data Cleaning and Preprocessing
+
+## Dataset: SQL-Engage v1.0
+**Source:** Adaptive Learning and Gamification Lab (ALGL), Northeastern University Vancouver  
+**Original size:** 1,500 records  
+**Team A subset (syntax + schema errors):** 1,041 records
 
 ---
 
-## Overview  
-Learning to write SQL queries is challenging for many students. Traditional autograders provide generic messages such as *“syntax error,”* which offer little instructional value or emotional support.  
-The **SQL-Engage Dataset** was created to advance research on **adaptive educational feedback systems** that combine:  
-- **Natural Language Processing (NLP)** for error understanding,  
-- **Machine Learning** for SQL error classification, and  
-- **Behavioral and emotional modeling** for engagement-aware feedback design.  
+## 1. Filtering
 
-This dataset provides a structured foundation for developing systems that can identify SQL query errors, infer user engagement or frustration, and generate contextually supportive feedback messages.
+The full dataset contains four error categories: syntax, schema, logic, and construction. As Team A, only syntax and schema error records were retained for analysis.
 
----
-
-## Dataset Schema  
-Each record represents one learner query instance with associated error and feedback annotations.
-
-| Column | Description |
-|---------|--------------|
-| **query** | SQL statement (correct or incorrect). |
-| **error_type** | Main category: {syntax, schema, logic, construction}. |
-| **error_subtype** | Fine-grained subtype (23 total, e.g., *missing semicolon*, *undefined column*, *inefficient query*). |
-| **emotion** | Inferred or simulated learner emotion (*happy*, *frustrated*, *neutral*, *focused*, etc.). |
-| **feedback_target** | Supportive, hint-based feedback message tailored to the error and emotional state. |
-| **intended_learning_outcome** | Concept reinforced by this feedback (e.g., SELECT syntax, JOIN logic). |
+| Error Type   | Original Count | Retained |
+|--------------|---------------|----------|
+| syntax       | 846           | Yes   |
+| schema       | 195           | Yes   |
+| logic        | 394           | No    |
+| construction | 65            | No    |
+| **Total**    | **1,500**     | **1,041**|
 
 ---
 
-## Data Generation and Provenance  
+## 2. Missing Values
 
-| Stage | Details |
-|-------|----------|
-| **Schema Context** | Cybernetic Sabotage database with tables: Employees, Robots, Logs, Incidents, Access_Codes. |
-| **Initial Generation (500 samples)** | Generated using **GPT-3.5-Turbo**, manually reviewed and validated. |
-| **Augmentation (1,000 samples)** | Produced with **Llama-3.1-70B** using subtype-specific prompts; refined using **Claude 3 Sonnet** and **ChatGPT**. |
-| **Environment** | Python 3.13.2 using `pandas` and `openai` APIs. |
-| **Structure** | 1,500 total samples covering 4 major error types and 23 subtypes. |
-| **Nature** | Fully synthetic, balanced, and manually validated for linguistic and logical diversity. |
+All six columns in the dataset were checked for null values. No missing values were found in any column.
 
----
+| Column                    | Null Count |
+|---------------------------|-----------|
+| query                     | 0         |
+| error_type                | 0         |
+| error_subtype             | 0         |
+| emotion                   | 0         |
+| feedback_target           | 0         |
+| intended_learning_outcome | 0         |
 
-## Intended Research Applications  
-- SQL **error classification** and **taxonomy development**  
-- **Adaptive feedback** modeling in intelligent tutoring systems  
-- **Emotion- and engagement-aware learning analytics**  
-- Benchmarking for **NLP/LLM-based educational feedback**  
-- Reinforcement or retrieval-augmented feedback generation pipelines  
+No imputation or row removal was required.
 
 ---
 
-## Attribution  
+## 3. Derived Column: sql_concept
 
-**Dr. Hazra Imran** — *Lead Researcher & Dataset Architect*  
-> Concept design, taxonomy definition, feedback modeling, validation framework, and documentation.  
+The original dataset does not include a SQL concept column. To support concept-level analysis (required by Task 2), a `sql_concept` column was derived from the `query` field by detecting SQL keywords in the following priority order:
 
-**Yan Wang** — *Research Assistant*  
-> Data generation, Python implementation, and manual quality review under supervision.  
+| Priority | Keyword detected | Assigned concept |
+|----------|-----------------|-----------------|
+| 1        | GROUP BY        | GROUP BY        |
+| 2        | HAVING          | HAVING          |
+| 3        | JOIN            | JOIN            |
+| 4        | ORDER BY        | ORDER BY        |
+| 5        | WHERE           | WHERE           |
+| 6        | DISTINCT        | DISTINCT        |
+| 7        | SELECT (×2)     | SUBQUERY        |
+| 8        | INSERT          | INSERT          |
+| 9        | UPDATE          | UPDATE          |
+| 10       | DELETE          | DELETE          |
+| default  | (none above)    | SELECT          |
 
-Developed within the [Adaptive Learning & Gamification Lab (ALGL)](https://hazraimran.ca/algl), Northeastern University Vancouver.  
+This extraction was performed in Python prior to loading into MySQL. The resulting distribution across the 1,041 Team A records is:
 
----
-
-## License  
-This dataset is released under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** License.  
-You may share and adapt the material for non-commercial research and educational purposes with appropriate credit to the authors.
-
----
-
-## Citation  
-
-If you use this dataset, please cite:  
-
-**APA Format**  
-Imran, H., & Wang, Y. (2025). *SQL-Engage: An Emotion-Aware Synthetic SQL Error Dataset for Adaptive Feedback and Engagement Modeling.* Adaptive Learning and Gamification Lab, Northeastern University Vancouver. https://github.com/hazraimran/sql-engage-dataset  
-
-**BibTeX**  
-```bibtex
-@dataset{imran2025sqlengage,
-  title        = {SQL-Engage: An Emotion-Aware Synthetic SQL Error Dataset for Adaptive Feedback and Engagement Modeling},
-  author       = {Imran, Hazra and Wang, Yan},
-  year         = {2025},
-  institution  = {Northeastern University Vancouver, Adaptive Learning and Gamification Lab},
-  doi          = {10.5281/zenodo.17555894},
-  url          = {https://doi.org/10.5281/zenodo.17555894},
-  license      = {CC BY 4.0}
-}
-```
+| sql_concept | Count |
+|-------------|-------|
+| WHERE       | 469   |
+| GROUP BY    | 153   |
+| JOIN        | 152   |
+| SELECT      | 131   |
+| ORDER BY    | 73    |
+| DISTINCT    | 33    |
+| INSERT      | 22    |
+| SUBQUERY    | 5     |
+| UPDATE      | 2     |
+| HAVING      | 1     |
 
 ---
 
-## Future Work  
-This dataset serves as the foundation for an integrated adaptive feedback system that unites:  
-- SQL error classification via NLP/LLM models,  
-- Keystroke-based engagement and emotion inference, and  
-- Context-adaptive feedback generation.  
+## 4. Normalization into Lookup Tables
 
-Future releases will include the **feedback generation ruleset**, **engagement dataset (SQL-Engage-v2)**, and baseline **ML/NLP notebooks** for reproducible benchmarking.
+To satisfy 3NF requirements, the following columns were extracted into separate lookup tables before loading:
+
+| Column                    | Lookup Table    | Unique Values |
+|---------------------------|-----------------|--------------|
+| error_type                | ErrorType       | 2            |
+| error_subtype             | ErrorSubtype    | 16           |
+| emotion                   | Emotion         | 5            |
+| sql_concept (derived)     | SQLConcept      | 10           |
+| intended_learning_outcome | LearningOutcome | 130          |
+
+The `feedback_target` column was retained directly in the `Submission` table as it is unique per record and not normalizable.
 
 ---
 
-**© 2025 Adaptive Learning & Gamification Lab (ALGL), Northeastern University Vancouver**  
-https://hazraimran.ca/algl  
+## 5. Text Escaping
 
+SQL query strings and feedback messages contain single quotes (e.g., `WHERE Status = 'Active'`). All single quotes were escaped as `''` and backslashes as `\\` prior to insertion into MySQL to prevent syntax errors during data loading.
 
+---
 
+## 6. Summary
+
+No records were dropped for data quality reasons. The only transformations applied were:
+- Filtering to syntax and schema records
+- Derivation of the `sql_concept` column from query text
+- Normalization of categorical columns into lookup tables
+- Text escaping for safe MySQL insertion
