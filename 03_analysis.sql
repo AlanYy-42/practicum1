@@ -62,34 +62,44 @@ ORDER BY avg_errors_per_subtype DESC;
 -- Error persistence proxy — for each concept, which subtype
 -- is most dominant (persistence = top subtype share > 40%)
 -- ============================================================
+WITH concept_subtype_counts AS (
+    SELECT
+        s.concept_id,
+        s.subtype_id,
+        COUNT(*) AS cnt
+    FROM Submission s
+    GROUP BY s.concept_id, s.subtype_id
+),
+concept_totals AS (
+    SELECT concept_id, SUM(cnt) AS total_errors
+    FROM concept_subtype_counts
+    GROUP BY concept_id
+),
+ranked AS (
+    SELECT
+        csc.concept_id,
+        csc.subtype_id,
+        csc.cnt,
+        ct.total_errors,
+        RANK() OVER (PARTITION BY csc.concept_id ORDER BY csc.cnt DESC) AS rnk
+    FROM concept_subtype_counts csc
+    JOIN concept_totals ct ON ct.concept_id = csc.concept_id
+)
 SELECT
     c.concept_name,
     es.subtype_name                                         AS dominant_subtype,
-    COUNT(*)                                                AS dominant_count,
-    total.total_errors,
-    ROUND(COUNT(*) * 100.0 / total.total_errors, 1)        AS dominance_pct,
+    r.cnt                                                   AS dominant_count,
+    r.total_errors,
+    ROUND(r.cnt * 100.0 / r.total_errors, 1)               AS dominance_pct,
     CASE
-        WHEN COUNT(*) * 100.0 / total.total_errors > 40
+        WHEN r.cnt * 100.0 / r.total_errors > 40
         THEN 'High persistence'
         ELSE 'Distributed'
     END                                                     AS persistence_label
-FROM Submission s
-JOIN SQLConcept  c  ON s.concept_id  = c.concept_id
-JOIN ErrorSubtype es ON s.subtype_id = es.subtype_id
-JOIN (
-    SELECT concept_id, COUNT(*) AS total_errors
-    FROM Submission
-    GROUP BY concept_id
-) total ON total.concept_id = s.concept_id
-GROUP BY c.concept_name, es.subtype_name, total.total_errors
-HAVING dominant_count = (
-    SELECT MAX(cnt) FROM (
-        SELECT COUNT(*) AS cnt
-        FROM Submission s2
-        WHERE s2.concept_id = s.concept_id
-        GROUP BY s2.subtype_id
-    ) sub
-)
+FROM ranked r
+JOIN SQLConcept   c  ON c.concept_id  = r.concept_id
+JOIN ErrorSubtype es ON es.subtype_id = r.subtype_id
+WHERE r.rnk = 1
 ORDER BY dominance_pct DESC;
 
 
